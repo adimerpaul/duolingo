@@ -163,6 +163,24 @@
           </q-item-section>
         </q-item>
 
+        <!-- PERSONAJES -->
+        <q-item
+          dense
+          to="/personajes"
+          exact
+          clickable
+          class="menu-item"
+          active-class="menu-active"
+          v-close-popup
+        >
+          <q-item-section avatar>
+            <q-icon name="pets" class="text-white" />
+          </q-item-section>
+          <q-item-section>
+            <q-item-label class="text-white">Personajes</q-item-label>
+          </q-item-section>
+        </q-item>
+
         <!-- ========================= -->
         <!-- GRADERÍAS (NUEVO MÓDULO) -->
         <!-- ========================= -->

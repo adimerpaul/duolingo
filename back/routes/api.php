@@ -4,6 +4,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\GraderiaController;
 use App\Http\Controllers\AsientoController;
+use App\Http\Controllers\PersonajeController;
 
 Route::post('/login', [App\Http\Controllers\UserController::class, 'login']);
 Route::get('/public/graderias/{code}', [GraderiaController::class, 'publicShowByCode']);
@@ -21,6 +22,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/users', [App\Http\Controllers\UserController::class, 'store']);
     Route::put('/users/{user}', [App\Http\Controllers\UserController::class, 'update']);
     Route::delete('/users/{user}', [App\Http\Controllers\UserController::class, 'destroy']);
+
+    Route::get('/personajes', [PersonajeController::class, 'index']);
+    Route::post('/personajes', [PersonajeController::class, 'store']);
+    Route::put('/personajes/{personaje}', [PersonajeController::class, 'update']);
+    Route::delete('/personajes/{personaje}', [PersonajeController::class, 'destroy']);
 
     Route::put('/updatePassword/{user}', [App\Http\Controllers\UserController::class, 'updatePassword']);
     Route::post('/{user}/avatar', [App\Http\Controllers\UserController::class, 'updateAvatar']);
