@@ -33,7 +33,7 @@ class DatabaseSeeder extends Seeder
         $permisos = [
             'Dashboard',
             'Usuarios',
-            'Graderias',
+//            'Graderias',
 //            'Reservas',
 //            'Idiomas',
 //            'Precios',
