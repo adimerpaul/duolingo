@@ -108,6 +108,40 @@
               class="q-mb-md"
             />
 
+            <q-banner class="bg-blue-1 text-blue-10 q-mb-md rounded-borders">
+              <div class="text-subtitle2">Generar estilos con IA</div>
+              <div class="text-caption">
+                Sube una imagen base y la IA creará los 8 estados estilo Duolingo.
+              </div>
+              <div class="row q-col-gutter-sm q-mt-sm items-center">
+                <div class="col-12 col-md-7">
+                  <q-file
+                    v-model="iaBaseImage"
+                    label="Imagen base para IA"
+                    dense
+                    outlined
+                    accept="image/*"
+                    clearable
+                  >
+                    <template v-slot:prepend>
+                      <q-icon name="auto_awesome" />
+                    </template>
+                  </q-file>
+                </div>
+                <div class="col-12 col-md-5">
+                  <q-btn
+                    color="deep-orange"
+                    icon="auto_fix_high"
+                    label="Generar con IA"
+                    no-caps
+                    :loading="generatingIa"
+                    :disable="!iaBaseImage || !form.nombre"
+                    @click="generarConIa"
+                  />
+                </div>
+              </div>
+            </q-banner>
+
             <div class="row q-col-gutter-md">
               <div v-for="style in estilos" :key="style.key" class="col-12 col-sm-6 col-md-3">
                 <q-file
@@ -159,6 +193,8 @@ export default {
       filter: '',
       dialog: false,
       previewUrls: {},
+      iaBaseImage: null,
+      generatingIa: false,
       form: this.emptyForm(),
       estilos: [
         { key: 'estilo_alegre', label: 'Alegre' },
@@ -242,6 +278,7 @@ export default {
     },
     closeDialog () {
       this.clearPreviewUrls()
+      this.iaBaseImage = null
       this.dialog = false
     },
     personajeNew () {
@@ -281,10 +318,50 @@ export default {
 
       this.estilos.forEach(style => {
         const file = this.form.files[style.key]
-        if (file) formData.append(style.key, file)
+        const filename = this.form[style.key]
+        if (file) {
+          formData.append(style.key, file)
+        } else if (filename) {
+          formData.append(style.key, filename)
+        }
       })
 
       return formData
+    },
+    generarConIa () {
+      if (!this.iaBaseImage) {
+        this.$alert.warning('Debes seleccionar una imagen base')
+        return
+      }
+      if (!this.form.nombre) {
+        this.$alert.warning('Debes ingresar el nombre del personaje')
+        return
+      }
+
+      const formData = new FormData()
+      formData.append('imagen_base', this.iaBaseImage)
+      formData.append('nombre', this.form.nombre)
+
+      this.generatingIa = true
+      this.$axios.post('personajes/generar-estilos-ia', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+        .then(res => {
+          const imagenes = res.data?.imagenes || {}
+          this.estilos.forEach(style => {
+            if (imagenes[style.key]) {
+              if (this.previewUrls[style.key]) {
+                URL.revokeObjectURL(this.previewUrls[style.key])
+                delete this.previewUrls[style.key]
+              }
+              this.form.files[style.key] = null
+              this.form[style.key] = imagenes[style.key]
+            }
+          })
+          this.$alert.success('Estilos generados con IA')
+        })
+        .catch(e => this.$alert.error(e.response?.data?.message || 'No se pudo generar con IA'))
+        .finally(() => { this.generatingIa = false })
     },
     personajePost () {
       this.loading = true

@@ -39,4 +39,9 @@ return [
         'secret' => env('STRIPE_SECRET'),
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
     ],
+
+    'google_ai_studio' => [
+        'api_key' => env('GOOGLE_AI_STUDIO_API_KEY'),
+        'image_model' => env('GOOGLE_AI_STUDIO_IMAGE_MODEL', 'gemini-2.5-flash-image'),
+    ],
 ];

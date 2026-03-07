@@ -24,7 +24,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/users/{user}', [App\Http\Controllers\UserController::class, 'destroy']);
 
     Route::get('/personajes', [PersonajeController::class, 'index']);
+    Route::get('/personajes/ia-modelos', [PersonajeController::class, 'listarModelosIa']);
     Route::post('/personajes', [PersonajeController::class, 'store']);
+    Route::post('/personajes/generar-estilos-ia', [PersonajeController::class, 'generarEstilosIa']);
     Route::put('/personajes/{personaje}', [PersonajeController::class, 'update']);
     Route::delete('/personajes/{personaje}', [PersonajeController::class, 'destroy']);
 
