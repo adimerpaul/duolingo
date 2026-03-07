@@ -7,8 +7,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
-use Intervention\Image\Drivers\Gd\Driver;
-use Intervention\Image\ImageManager;
 use Illuminate\Validation\ValidationException;
 
 class PersonajeController extends Controller
@@ -177,16 +175,12 @@ class PersonajeController extends Controller
 
     private function compressAndSaveImage($file): string
     {
-        $filename = time() . '_' . Str::random(10) . '.jpg';
-        $path = public_path('images/' . $filename);
+        $binary = (string) file_get_contents($file->getPathname());
 
-        $manager = new ImageManager(new Driver());
-        $manager->read($file->getPathname())
-            ->scaleDown(width: 800, height: 800)
-            ->toJpeg(75)
-            ->save($path);
-
-        return $filename;
+        return $this->saveTransparentPngFromBinary(
+            binary: $binary,
+            filenamePrefix: time() . '_' . Str::random(10),
+        );
     }
 
     private function validateStyleInputs(Request $request): void
@@ -315,16 +309,95 @@ class PersonajeController extends Controller
     private function saveGeneratedImage(string $binary, string $styleKey, string $nombre): string
     {
         $slug = Str::slug($nombre ?: 'personaje');
-        $filename = "{$slug}_{$styleKey}_" . time() . '_' . Str::lower(Str::random(6)) . '.jpg';
+        $prefix = "{$slug}_{$styleKey}_" . time() . '_' . Str::lower(Str::random(6));
+
+        return $this->saveTransparentPngFromBinary(
+            binary: $binary,
+            filenamePrefix: $prefix,
+        );
+    }
+
+    private function saveTransparentPngFromBinary(string $binary, string $filenamePrefix): string
+    {
+        $image = @imagecreatefromstring($binary);
+        if ($image === false) {
+            throw ValidationException::withMessages([
+                'imagen' => ['No se pudo procesar la imagen enviada.'],
+            ]);
+        }
+
+        $scaled = $this->scaleDownGdImage($image, 800, 800);
+        if ($scaled !== $image) {
+            imagedestroy($image);
+            $image = $scaled;
+        }
+
+        imagealphablending($image, false);
+        imagesavealpha($image, true);
+
+        $width = imagesx($image);
+        $height = imagesy($image);
+
+        for ($y = 0; $y < $height; $y++) {
+            for ($x = 0; $x < $width; $x++) {
+                $rgba = imagecolorat($image, $x, $y);
+                $alpha = ($rgba >> 24) & 0x7F;
+                $r = ($rgba >> 16) & 0xFF;
+                $g = ($rgba >> 8) & 0xFF;
+                $b = $rgba & 0xFF;
+
+                $max = max($r, $g, $b);
+                $min = min($r, $g, $b);
+                $saturation = $max === 0 ? 0 : ($max - $min) / $max;
+                $whiteness = ($r + $g + $b) / 3;
+
+                $targetAlpha = $alpha;
+                if ($whiteness >= 245) {
+                    $targetAlpha = 127;
+                } elseif ($whiteness >= 225 && $saturation <= 0.12) {
+                    $fade = ($whiteness - 225) / 20;
+                    $fadeAlpha = (int) round(127 * $fade);
+                    $targetAlpha = max($alpha, $fadeAlpha);
+                }
+
+                if ($targetAlpha !== $alpha) {
+                    $color = (($targetAlpha & 0x7F) << 24) | (($r & 0xFF) << 16) | (($g & 0xFF) << 8) | ($b & 0xFF);
+                    imagesetpixel($image, $x, $y, $color);
+                }
+            }
+        }
+
+        $filename = $filenamePrefix . '.png';
         $path = public_path('images/' . $filename);
 
-        $manager = new ImageManager(new Driver());
-        $manager->read($binary)
-            ->scaleDown(width: 800, height: 800)
-            ->toJpeg(82)
-            ->save($path);
+        imagepng($image, $path, 6);
+        imagedestroy($image);
 
         return $filename;
+    }
+
+    private function scaleDownGdImage(\GdImage $image, int $maxWidth, int $maxHeight): \GdImage
+    {
+        $width = imagesx($image);
+        $height = imagesy($image);
+
+        if ($width <= $maxWidth && $height <= $maxHeight) {
+            return $image;
+        }
+
+        $ratio = min($maxWidth / $width, $maxHeight / $height);
+        $targetWidth = max(1, (int) round($width * $ratio));
+        $targetHeight = max(1, (int) round($height * $ratio));
+
+        $scaled = imagecreatetruecolor($targetWidth, $targetHeight);
+        imagealphablending($scaled, false);
+        imagesavealpha($scaled, true);
+        $transparent = imagecolorallocatealpha($scaled, 0, 0, 0, 127);
+        imagefill($scaled, 0, 0, $transparent);
+
+        imagecopyresampled($scaled, $image, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
+
+        return $scaled;
     }
 
     private function deleteImageIfExists(string $filename): void
